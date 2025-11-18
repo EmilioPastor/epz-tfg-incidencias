@@ -13,31 +13,40 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
-        <div className="min-h-screen flex flex-col">
-          <header className="border-b border-white/5 bg-slate-950/70 backdrop-blur">
+      <body className="min-h-screen bg-slate-50 text-slate-900">
+        <div className="flex min-h-screen flex-col">
+          {/* Barra superior */}
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-xs font-semibold text-white shadow-sm">
                   IT
                 </div>
                 <div>
-                  <p className="text-sm font-semibold leading-none">
+                  <p className="text-sm font-semibold leading-tight">
                     Gestor de Incidencias
                   </p>
-                  <p className="text-xs text-slate-400">
-                    Proyecto TFG DAW · Emilio Pastor
+                  <p className="text-xs text-slate-500">
+                    Proyecto TFG · Desarrollo de Aplicaciones Web
                   </p>
                 </div>
+              </div>
+              <div className="hidden text-xs text-slate-500 sm:block">
+                <p>Sistema interno de gestión de incidencias técnicas</p>
               </div>
             </div>
           </header>
 
+          {/* Contenido */}
           <main className="flex-1">
-            <div className="mx-auto max-w-6xl px-4 py-6">{children}</div>
+            <div className="mx-auto flex max-w-6xl gap-6 px-4 py-6">
+              {/* Columna principal */}
+              <div className="flex-1">{children}</div>
+            </div>
           </main>
 
-          <footer className="border-t border-white/5 bg-slate-950/70 py-3 text-center text-xs text-slate-500">
+          {/* Pie */}
+          <footer className="border-t border-slate-200 bg-white py-3 text-center text-[11px] text-slate-500">
             Sistema de gestión de incidencias técnicas · TFG DAW
           </footer>
         </div>

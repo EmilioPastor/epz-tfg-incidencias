@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
 body {
-  @apply bg-slate-900 text-slate-100;
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+::selection {
+  background-color: rgba(56, 189, 248, 0.2);
+}
+
+/* Tipografía base */
+h1, h2, h3 {
+  @apply font-semibold text-slate-900;
+}
+
+p, span, li, label {
+  @apply text-slate-700;
 }
