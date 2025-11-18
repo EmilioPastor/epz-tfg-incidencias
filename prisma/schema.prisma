@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  USUARIO
+  TECNICO
+  ADMIN
+}
+
+model Usuario {
+  id                    Int          @id @default(autoincrement())
+  nombre                String
+  email                 String       @unique
+  password              String
+  rol                   Rol
+
+  incidenciasCreadas    Incidencia[] @relation("UsuarioIncidencias")
+  incidenciasAsignadas  Incidencia[] @relation("TecnicoIncidencias")
+}
+
+model Incidencia {
+  id               Int       @id @default(autoincrement())
+  descripcion      String
+  fechaCreacion    DateTime  @default(now())
+  estado           String    @default("ABIERTA")
+
+  usuarioId        Int
+  usuario          Usuario   @relation("UsuarioIncidencias", fields: [usuarioId], references: [id])
+
+  tecnicoId        Int?
+  tecnico          Usuario?  @relation("TecnicoIncidencias", fields: [tecnicoId], references: [id])
+
+  fechaResolucion  DateTime?
+  tiempoEmpleado   Int?
+  materiales       String?
+  coste            Float?    // en Postgres será double precision, sin problema
+}
