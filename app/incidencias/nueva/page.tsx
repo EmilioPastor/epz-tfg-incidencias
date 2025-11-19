@@ -8,13 +8,13 @@ export default function NuevaIncidenciaPage() {
   const [descripcion, setDescripcion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [cargando, setCargando] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setOk(null);
-    setLoading(true);
+    setCargando(true);
 
     try {
       const res = await fetch("/api/incidencias", {
@@ -26,57 +26,62 @@ export default function NuevaIncidenciaPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Error al crear la incidencia");
+        setError(data.error || "Error al crear la incidencia.");
         return;
       }
 
       setOk("Incidencia creada correctamente.");
       setDescripcion("");
-      setTimeout(() => router.push("/incidencias"), 1000);
+      setTimeout(() => router.push("/incidencias"), 900);
     } catch {
-      setError("Error de conexión con el servidor");
+      setError("Error de conexión con el servidor.");
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4">
-      <button
-        onClick={() => router.push("/incidencias")}
-        className="text-xs text-slate-600 hover:text-slate-900"
-      >
-        ← Volver al listado
-      </button>
+    <main className="p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <h1 className="text-base font-semibold text-slate-900">
+            Nueva incidencia
+          </h1>
+          <p className="text-xs text-slate-600">
+            Detalla el problema para que pueda ser gestionado por el equipo
+            técnico.
+          </p>
+        </div>
+        <button
+          onClick={() => router.push("/incidencias")}
+          className="border border-slate-400 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-900 hover:bg-slate-100"
+        >
+          Volver al listado
+        </button>
+      </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-lg font-semibold">Nueva incidencia</h1>
-        <p className="text-xs text-slate-600">
-          Describe de forma clara el problema detectado para que pueda ser
-          gestionado por el equipo técnico.
-        </p>
-
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4 text-sm">
+      <section className="max-w-3xl border border-slate-300 bg-white p-4 text-sm">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-[13px] font-medium text-slate-800">
               Descripción de la incidencia
             </label>
             <textarea
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              rows={6}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-              placeholder="Ejemplo: El equipo del puesto 3 no enciende, muestra un pitido continuo al arrancar y no llega a cargar el sistema operativo..."
+              rows={7}
+              className="w-full border border-slate-400 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600"
+              placeholder="Ejemplo: El equipo del puesto 3 no arranca, muestra un pitido continuo al encender y no llega a cargar el sistema operativo..."
             />
           </div>
 
           {error && (
-            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            <p className="border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
               {error}
             </p>
           )}
           {ok && (
-            <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            <p className="border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
               {ok}
             </p>
           )}
@@ -84,17 +89,17 @@ export default function NuevaIncidenciaPage() {
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => router.push("/incidencias")}
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-800 hover:bg-slate-50"
+              onClick={() => router.push("/dashboard")}
+              className="border border-slate-400 bg-white px-4 py-2 text-[12px] font-medium text-slate-900 hover:bg-slate-100"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="rounded-md bg-sky-600 px-4 py-2 text-xs font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={cargando}
+              className="border border-blue-700 bg-blue-700 px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-white hover:bg-blue-800 disabled:opacity-60"
             >
-              {loading ? "Guardando..." : "Crear incidencia"}
+              {cargando ? "Guardando..." : "Crear incidencia"}
             </button>
           </div>
         </form>

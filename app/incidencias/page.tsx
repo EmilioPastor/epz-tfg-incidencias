@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface Incidencia {
@@ -16,28 +16,31 @@ interface Incidencia {
   } | null;
 }
 
-function EstadoBadge({ estado }: { estado: string }) {
+function EstadoChip({ estado }: { estado: string }) {
   const e = estado.toUpperCase();
   if (e === "CERRADA") {
     return (
-      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200">
+      <span className="inline-block border border-emerald-500 bg-emerald-50 px-1.5 py-[1px] text-[10px] font-semibold text-emerald-700">
         CERRADA
       </span>
     );
   }
   if (e === "EN_PROCESO") {
     return (
-      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200">
+      <span className="inline-block border border-amber-500 bg-amber-50 px-1.5 py-[1px] text-[10px] font-semibold text-amber-700">
         EN PROCESO
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-sky-200">
+    <span className="inline-block border border-blue-500 bg-blue-50 px-1.5 py-[1px] text-[10px] font-semibold text-blue-700">
       ABIERTA
     </span>
   );
 }
+
+type FiltroEstado = "TODOS" | "ABIERTA" | "EN_PROCESO" | "CERRADA";
+type OrdenFecha = "DESC" | "ASC";
 
 export default function IncidenciasPage() {
   const router = useRouter();
@@ -45,25 +48,34 @@ export default function IncidenciasPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("TODOS");
+  const [busqueda, setBusqueda] = useState("");
+  const [ordenFecha, setOrdenFecha] = useState<OrdenFecha>("DESC");
+
   useEffect(() => {
     async function fetchIncidencias() {
       try {
+        setCargando(true);
+        setError(null);
+
         const res = await fetch("/api/incidencias");
         const data = await res.json();
 
         if (res.status === 401) {
           setError("No autenticado");
+          setCargando(false);
           return;
         }
 
         if (!res.ok) {
-          setError(data.error || "Error al cargar incidencias");
+          setError(data.error || "Error al cargar incidencias.");
+          setCargando(false);
           return;
         }
 
         setIncidencias(data);
       } catch {
-        setError("Error de conexión con el servidor");
+        setError("Error de conexión con el servidor.");
       } finally {
         setCargando(false);
       }
@@ -72,9 +84,43 @@ export default function IncidenciasPage() {
     fetchIncidencias();
   }, []);
 
+  const incidenciasFiltradas = useMemo(() => {
+    let lista = [...incidencias];
+
+    if (filtroEstado !== "TODOS") {
+      lista = lista.filter((i) => i.estado === filtroEstado);
+    }
+
+    if (busqueda.trim() !== "") {
+      const q = busqueda.trim().toLowerCase();
+      lista = lista.filter((i) => {
+        const desc = i.descripcion.toLowerCase();
+        const idStr = String(i.id);
+        return desc.includes(q) || idStr.includes(q);
+      });
+    }
+
+    lista.sort((a, b) => {
+      const da = new Date(a.fechaCreacion).getTime();
+      const db = new Date(b.fechaCreacion).getTime();
+      if (ordenFecha === "DESC") {
+        return db - da;
+      }
+      return da - db;
+    });
+
+    return lista;
+  }, [incidencias, filtroEstado, busqueda, ordenFecha]);
+
+  function limpiarFiltros() {
+    setFiltroEstado("TODOS");
+    setBusqueda("");
+    setOrdenFecha("DESC");
+  }
+
   if (cargando) {
     return (
-      <main className="p-6 text-sm text-slate-600">
+      <main className="p-6 text-sm text-slate-700">
         Cargando incidencias...
       </main>
     );
@@ -82,90 +128,176 @@ export default function IncidenciasPage() {
 
   if (error) {
     return (
-      <main className="p-6">
-        <p className="mb-3 text-sm text-red-600">{error}</p>
-        {error === "No autenticado" && (
-          <button
-            onClick={() => router.push("/")}
-            className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
-          >
-            Ir al inicio de sesión
-          </button>
-        )}
+      <main className="p-6 text-sm">
+        <div className="max-w-md border border-slate-300 bg-white p-4">
+          <p className="mb-3 text-sm text-red-600">{error}</p>
+          {error === "No autenticado" ? (
+            <button
+              onClick={() => router.push("/")}
+              className="border border-blue-700 bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+            >
+              Ir al inicio de sesión
+            </button>
+          ) : (
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="border border-slate-400 bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-100"
+            >
+              Volver al panel
+            </button>
+          )}
+        </div>
       </main>
     );
   }
 
+  const hayIncidencias = incidencias.length > 0;
+  const hayFiltradas = incidenciasFiltradas.length > 0;
+
   return (
-    <main className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
+    <main className="space-y-4 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-lg font-semibold">Incidencias</h1>
+          <h1 className="text-base font-semibold text-slate-900">
+            Listado de incidencias
+          </h1>
           <p className="text-xs text-slate-600">
-            Listado de incidencias visibles según tu rol.
+            Vista de las incidencias accesibles según tu rol, con filtros y
+            búsqueda.
           </p>
         </div>
-        <button
-          onClick={() => router.push("/incidencias/nueva")}
-          className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700"
-        >
-          + Nueva incidencia
-        </button>
+        <div className="flex gap-2 text-sm">
+          <button
+            onClick={() => router.push("/incidencias/nueva")}
+            className="border border-blue-700 bg-blue-700 px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-white hover:bg-blue-800"
+          >
+            Nueva incidencia
+          </button>
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="border border-slate-400 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-900 hover:bg-slate-100"
+          >
+            Volver al panel
+          </button>
+        </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {incidencias.length === 0 ? (
-          <div className="p-6 text-sm text-slate-600">
-            No hay incidencias registradas.
+      {/* Barra de filtros */}
+      <section className="border border-slate-300 bg-white p-3 text-[12px]">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+              Estado
+            </label>
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value as FiltroEstado)}
+              className="border border-slate-400 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-blue-600"
+            >
+              <option value="TODOS">Todos</option>
+              <option value="ABIERTA">Abiertas</option>
+              <option value="EN_PROCESO">En proceso</option>
+              <option value="CERRADA">Cerradas</option>
+            </select>
+          </div>
+
+          <div className="min-w-[220px]">
+            <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+              Búsqueda (ID o descripción)
+            </label>
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Ejemplo: impresora, red, #12..."
+              className="w-full border border-slate-400 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-blue-600"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+              Orden por fecha
+            </label>
+            <select
+              value={ordenFecha}
+              onChange={(e) => setOrdenFecha(e.target.value as OrdenFecha)}
+              className="border border-slate-400 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-blue-600"
+            >
+              <option value="DESC">Más recientes primero</option>
+              <option value="ASC">Más antiguas primero</option>
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={limpiarFiltros}
+            className="ml-auto border border-slate-400 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-900 hover:bg-slate-100"
+          >
+            Limpiar filtros
+          </button>
+        </div>
+      </section>
+
+      {/* Tabla */}
+      <section className="border border-slate-300 bg-white text-sm">
+        {!hayIncidencias ? (
+          <div className="p-4 text-sm text-slate-600">
+            No hay incidencias registradas todavía.
+          </div>
+        ) : !hayFiltradas ? (
+          <div className="p-4 text-sm text-slate-600">
+            No hay incidencias que cumplan los filtros actuales.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-medium uppercase tracking-wide text-slate-600">
+            <table className="min-w-full text-left text-[12px]">
+              <thead className="border-b border-slate-300 bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
                 <tr>
-                  <th className="px-4 py-2">ID</th>
-                  <th className="px-4 py-2">Descripción</th>
-                  <th className="px-4 py-2">Estado</th>
-                  <th className="px-4 py-2 whitespace-nowrap">
+                  <th className="px-3 py-2">ID</th>
+                  <th className="px-3 py-2">Descripción</th>
+                  <th className="px-3 py-2">Estado</th>
+                  <th className="px-3 py-2 whitespace-nowrap">
                     Fecha creación
                   </th>
-                  <th className="px-4 py-2">Usuario</th>
-                  <th className="px-4 py-2">Técnico</th>
-                  <th className="px-4 py-2"></th>
+                  <th className="px-3 py-2">Usuario</th>
+                  <th className="px-3 py-2">Técnico</th>
+                  <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody>
-                {incidencias.map((inc, idx) => (
+                {incidenciasFiltradas.map((inc, idx) => (
                   <tr
                     key={inc.id}
-                    className={`border-b border-slate-100 ${
-                      idx % 2 === 0 ? "bg-white" : "bg-slate-50/60"
+                    className={`border-b border-slate-200 ${
+                      idx % 2 === 0 ? "bg-white" : "bg-slate-50"
                     } hover:bg-slate-100`}
                   >
-                    <td className="px-4 py-2 text-slate-700">{inc.id}</td>
-                    <td className="px-4 py-2 text-slate-900">
-                      <p className="max-w-xs break-words text-[13px]">
+                    <td className="px-3 py-2 text-slate-800">
+                      #{String(inc.id).padStart(3, "0")}
+                    </td>
+                    <td className="px-3 py-2 text-slate-900">
+                      <span className="line-clamp-2 max-w-xs">
                         {inc.descripcion}
-                      </p>
+                      </span>
                     </td>
-                    <td className="px-4 py-2">
-                      <EstadoBadge estado={inc.estado} />
+                    <td className="px-3 py-2">
+                      <EstadoChip estado={inc.estado} />
                     </td>
-                    <td className="px-4 py-2 text-slate-700 whitespace-nowrap">
+                    <td className="whitespace-nowrap px-3 py-2 text-slate-700">
                       {new Date(inc.fechaCreacion).toLocaleString()}
                     </td>
-                    <td className="px-4 py-2 text-slate-700">
-                      {inc.usuario?.nombre ?? "-"}
+                    <td className="px-3 py-2 text-slate-700">
+                      {inc.usuario?.nombre ?? "—"}
                     </td>
-                    <td className="px-4 py-2 text-slate-700">
-                      {inc.tecnico?.nombre ?? "-"}
+                    <td className="px-3 py-2 text-slate-700">
+                      {inc.tecnico?.nombre ?? "Sin asignar"}
                     </td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-3 py-2 text-right">
                       <button
                         onClick={() => router.push(`/incidencias/${inc.id}`)}
-                        className="rounded-md border border-slate-300 bg-white px-3 py-1 text-[11px] font-medium text-slate-800 hover:bg-slate-50"
+                        className="border border-slate-400 bg-white px-3 py-1 text-[11px] font-medium text-slate-900 hover:bg-slate-100"
                       >
-                        Ver / gestionar
+                        Ver detalle
                       </button>
                     </td>
                   </tr>
@@ -174,14 +306,7 @@ export default function IncidenciasPage() {
             </table>
           </div>
         )}
-      </div>
-
-      <button
-        onClick={() => router.push("/dashboard")}
-        className="text-xs text-slate-600 hover:text-slate-900"
-      >
-        ← Volver al dashboard
-      </button>
+      </section>
     </main>
   );
 }

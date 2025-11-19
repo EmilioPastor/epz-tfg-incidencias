@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 type UserRole = "USUARIO" | "TECNICO" | "ADMIN";
@@ -37,6 +37,29 @@ interface Tecnico {
   id: number;
   nombre: string;
   email: string;
+}
+
+function EstadoChip({ estado }: { estado: string }) {
+  const e = estado.toUpperCase();
+  if (e === "CERRADA") {
+    return (
+      <span className="inline-block border border-emerald-500 bg-emerald-50 px-1.5 py-[1px] text-[10px] font-semibold text-emerald-700">
+        CERRADA
+      </span>
+    );
+  }
+  if (e === "EN_PROCESO") {
+    return (
+      <span className="inline-block border border-amber-500 bg-amber-50 px-1.5 py-[1px] text-[10px] font-semibold text-amber-700">
+        EN PROCESO
+      </span>
+    );
+  }
+  return (
+    <span className="inline-block border border-blue-500 bg-blue-50 px-1.5 py-[1px] text-[10px] font-semibold text-blue-700">
+      ABIERTA
+    </span>
+  );
 }
 
 function toInputDateTimeValue(isoString: string | null): string {
@@ -88,7 +111,7 @@ export default function IncidenciaDetailPage() {
         const dataInc = await resInc.json();
 
         if (!resInc.ok) {
-          setError(dataInc.error || "Error al cargar la incidencia");
+          setError(dataInc.error || "Error al cargar la incidencia.");
           setLoading(false);
           return;
         }
@@ -106,12 +129,10 @@ export default function IncidenciaDetailPage() {
         if (currentUser.rol === "ADMIN") {
           const resTec = await fetch("/api/usuarios/tecnicos");
           const dataTec = await resTec.json();
-          if (resTec.ok) {
-            setTecnicos(dataTec);
-          }
+          if (resTec.ok) setTecnicos(dataTec);
         }
       } catch {
-        setError("Error de conexión con el servidor");
+        setError("Error de conexión con el servidor.");
       } finally {
         setLoading(false);
       }
@@ -120,26 +141,43 @@ export default function IncidenciaDetailPage() {
     if (id) load();
   }, [id]);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  const esAdmin = user?.rol === "ADMIN";
+  const esTecnico = user?.rol === "TECNICO";
+  const puedeEditar = !!user && (esAdmin || esTecnico);
+  const estaCerrada = incidencia?.estado === "CERRADA";
+
+  async function actualizarIncidencia(
+    extra: Partial<{
+      estado: string;
+      fechaResolucion: string | null;
+      tiempoEmpleado: number | null;
+      materiales: string | null;
+      coste: number | null;
+      tecnicoId: number | null;
+    }> = {}
+  ) {
     if (!incidencia || !user) return;
 
+    setSaving(true);
     setError(null);
     setOk(null);
-    setSaving(true);
 
     try {
-      const body: any = {
+      const base: any = {
         estado,
         fechaResolucion: fechaResolucion || null,
-        tiempoEmpleado: tiempoEmpleado ? Number(tiempoEmpleado) : null,
+        tiempoEmpleado: tiempoEmpleado
+          ? Number(tiempoEmpleado)
+          : null,
         materiales: materiales || null,
         coste: coste ? Number(coste) : null,
       };
 
-      if (user.rol === "ADMIN") {
-        body.tecnicoId = tecnicoId ? Number(tecnicoId) : null;
+      if (esAdmin) {
+        base.tecnicoId = tecnicoId ? Number(tecnicoId) : null;
       }
+
+      const body = { ...base, ...extra };
 
       const res = await fetch(`/api/incidencias/${incidencia.id}`, {
         method: "PATCH",
@@ -150,185 +188,307 @@ export default function IncidenciaDetailPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Error al guardar los cambios");
+        setError(data.error || "Error al guardar los cambios.");
         return;
       }
 
-      setIncidencia(data);
+      const incActualizada: Incidencia = data;
+      setIncidencia(incActualizada);
+
+      // Sincronizamos el formulario con lo que viene del backend
+      setEstado(incActualizada.estado);
+      setFechaResolucion(
+        toInputDateTimeValue(incActualizada.fechaResolucion)
+      );
+      setTiempoEmpleado(
+        incActualizada.tiempoEmpleado
+          ? String(incActualizada.tiempoEmpleado)
+          : ""
+      );
+      setMateriales(incActualizada.materiales ?? "");
+      setCoste(
+        incActualizada.coste != null
+          ? String(incActualizada.coste)
+          : ""
+      );
+      setTecnicoId(
+        incActualizada.tecnicoId != null
+          ? String(incActualizada.tecnicoId)
+          : ""
+      );
+
       setOk("Cambios guardados correctamente.");
     } catch {
-      setError("Error de conexión con el servidor");
+      setError("Error de conexión con el servidor.");
     } finally {
       setSaving(false);
     }
   }
 
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    await actualizarIncidencia();
+  }
+
+  async function marcarEnProceso() {
+    if (!incidencia || !puedeEditar) return;
+    setEstado("EN_PROCESO");
+    await actualizarIncidencia({ estado: "EN_PROCESO" });
+  }
+
+  async function cerrarAhora() {
+    if (!incidencia || !puedeEditar) return;
+
+    const ahora = new Date();
+    const creada = new Date(incidencia.fechaCreacion);
+    const diffMin = Math.max(
+      1,
+      Math.round((ahora.getTime() - creada.getTime()) / 60000)
+    );
+
+    const tiempo =
+      tiempoEmpleado && !Number.isNaN(Number(tiempoEmpleado))
+        ? Number(tiempoEmpleado)
+        : diffMin;
+
+    const isoAhora = ahora.toISOString();
+
+    setEstado("CERRADA");
+    setFechaResolucion(toInputDateTimeValue(isoAhora));
+    setTiempoEmpleado(String(tiempo));
+
+    await actualizarIncidencia({
+      estado: "CERRADA",
+      fechaResolucion: isoAhora,
+      tiempoEmpleado: tiempo,
+    });
+  }
+
+  function calcularCosteAutomatico() {
+    const minutos = Number(tiempoEmpleado);
+    if (!minutos || Number.isNaN(minutos)) return;
+
+    const tarifaHora = 30; // €/hora (puedes documentarlo en la memoria)
+    const horas = minutos / 60;
+    const costeCalculado = +(horas * tarifaHora).toFixed(2);
+    setCoste(String(costeCalculado));
+  }
+
   if (loading) {
     return (
-      <main className="p-6 text-sm text-slate-600">
+      <main className="p-6 text-sm text-slate-700">
         Cargando incidencia...
       </main>
     );
   }
 
-  if (error) {
+  if (error && (!incidencia || !user)) {
     return (
-      <main className="p-6 text-sm text-slate-800">
-        <p className="mb-3 text-sm text-red-600">{error}</p>
-        {error === "No autenticado" ? (
-          <button
-            onClick={() => router.push("/")}
-            className="rounded-md bg-sky-600 px-4 py-2 text-xs font-medium text-white hover:bg-sky-700"
-          >
-            Ir al inicio de sesión
-          </button>
-        ) : (
-          <button
-            onClick={() => router.push("/incidencias")}
-            className="rounded-md bg-slate-100 px-4 py-2 text-xs font-medium text-slate-800 hover:bg-slate-200"
-          >
-            Volver al listado
-          </button>
-        )}
+      <main className="p-6 text-sm">
+        <div className="max-w-md border border-slate-300 bg-white p-4">
+          <p className="mb-3 text-sm text-red-600">{error}</p>
+          {error === "No autenticado" ? (
+            <button
+              onClick={() => router.push("/")}
+              className="border border-blue-700 bg-blue-700 px-4 py-2 text-xs font-medium text-white hover:bg-blue-800"
+            >
+              Ir al inicio de sesión
+            </button>
+          ) : (
+            <button
+              onClick={() => router.push("/incidencias")}
+              className="border border-slate-400 bg-white px-4 py-2 text-xs font-medium text-slate-900 hover:bg-slate-100"
+            >
+              Volver al listado
+            </button>
+          )}
+        </div>
       </main>
     );
   }
 
   if (!incidencia || !user) {
     return (
-      <main className="p-6 text-sm text-slate-800">
-        <p className="mb-3">Incidencia no encontrada.</p>
-        <button
-          onClick={() => router.push("/incidencias")}
-          className="rounded-md bg-slate-100 px-4 py-2 text-xs font-medium text-slate-800 hover:bg-slate-200"
-        >
-          Volver al listado
-        </button>
+      <main className="p-6 text-sm">
+        <div className="max-w-md border border-slate-300 bg-white p-4">
+          <p className="mb-3">Incidencia no encontrada.</p>
+          <button
+            onClick={() => router.push("/incidencias")}
+            className="border border-slate-400 bg-white px-4 py-2 text-xs font-medium text-slate-900 hover:bg-slate-100"
+          >
+            Volver al listado
+          </button>
+        </div>
       </main>
     );
   }
 
-  const esAdmin = user.rol === "ADMIN";
-  const esTecnico = user.rol === "TECNICO";
-  const puedeEditar = esAdmin || esTecnico;
-
   return (
-    <main className="space-y-4">
-      <button
-        onClick={() => router.push("/incidencias")}
-        className="text-xs text-slate-600 hover:text-slate-900"
-      >
-        ← Volver al listado
-      </button>
-
-      <div className="grid gap-4 md:grid-cols-[1.1fr,1fr]">
-        {/* Ficha de la incidencia */}
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-medium text-slate-500">
-            Incidencia #{incidencia.id}
+    <main className="space-y-4 p-4 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Incidencia #{String(incidencia.id).padStart(3, "0")}
           </p>
-          <h1 className="mt-1 text-lg font-semibold">
-            Detalle de la incidencia
+          <h1 className="mt-1 text-base font-semibold text-slate-900">
+            Detalle de incidencia
           </h1>
+        </div>
+        <button
+          onClick={() => router.push("/incidencias")}
+          className="border border-slate-400 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-900 hover:bg-slate-100"
+        >
+          Volver al listado
+        </button>
+      </div>
 
-          <div className="mt-4 space-y-3 text-sm">
+      <section className="grid gap-4 lg:grid-cols-[1.4fr,1fr]">
+        {/* FICHA */}
+        <article className="border border-slate-300 bg-white p-4 text-sm">
+          <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-200 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[13px] text-slate-900">
+                #{String(incidencia.id).padStart(3, "0")}
+              </span>
+              <EstadoChip estado={incidencia.estado} />
+            </div>
+            <span className="text-[11px] text-slate-500">
+              Creada el{" "}
+              {new Date(incidencia.fechaCreacion).toLocaleString()}
+            </span>
+          </div>
+
+          <div className="space-y-3 text-[13px]">
             <div>
-              <p className="text-xs font-medium text-slate-500">Descripción</p>
-              <p className="mt-1 text-slate-900">{incidencia.descripcion}</p>
+              <p className="text-[11px] font-semibold text-slate-700">
+                Descripción
+              </p>
+              <p className="mt-1 whitespace-pre-line text-slate-900">
+                {incidencia.descripcion}
+              </p>
             </div>
 
-            <div className="grid gap-3 text-xs sm:grid-cols-2">
+            <div className="grid gap-3 text-[12px] md:grid-cols-2">
               <div>
-                <p className="text-slate-500">Creada por</p>
+                <p className="text-[11px] font-semibold text-slate-700">
+                  Usuario que registra
+                </p>
                 <p className="mt-1 text-slate-900">
                   {incidencia.usuario?.nombre}
-                  <span className="block text-[11px] text-slate-500">
-                    {incidencia.usuario?.email}
-                  </span>
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  {incidencia.usuario?.email}
                 </p>
               </div>
               <div>
-                <p className="text-slate-500">Fecha de creación</p>
-                <p className="mt-1 text-slate-900">
-                  {new Date(incidencia.fechaCreacion).toLocaleString()}
+                <p className="text-[11px] font-semibold text-slate-700">
+                  Técnico asignado
                 </p>
-              </div>
-            </div>
-
-            <div className="grid gap-3 text-xs sm:grid-cols-2">
-              <div>
-                <p className="text-slate-500">Estado actual</p>
-                <p className="mt-1 text-slate-900">{incidencia.estado}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Técnico asignado</p>
                 <p className="mt-1 text-slate-900">
                   {incidencia.tecnico
-                    ? `${incidencia.tecnico.nombre} (${incidencia.tecnico.email})`
+                    ? incidencia.tecnico.nombre
                     : "Sin asignar"}
                 </p>
+                {incidencia.tecnico && (
+                  <p className="text-[11px] text-slate-500">
+                    {incidencia.tecnico.email}
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="grid gap-3 text-xs sm:grid-cols-3">
+            <div className="grid gap-3 text-[12px] md:grid-cols-3">
               <div>
-                <p className="text-slate-500">Fecha de resolución</p>
+                <p className="text-[11px] font-semibold text-slate-700">
+                  Fecha de resolución
+                </p>
                 <p className="mt-1 text-slate-900">
                   {incidencia.fechaResolucion
-                    ? new Date(incidencia.fechaResolucion).toLocaleString()
-                    : "-"}
+                    ? new Date(
+                        incidencia.fechaResolucion
+                      ).toLocaleString()
+                    : "—"}
                 </p>
               </div>
               <div>
-                <p className="text-slate-500">Tiempo empleado (min)</p>
+                <p className="text-[11px] font-semibold text-slate-700">
+                  Tiempo empleado (min)
+                </p>
                 <p className="mt-1 text-slate-900">
-                  {incidencia.tiempoEmpleado ?? "-"}
+                  {incidencia.tiempoEmpleado ?? "—"}
                 </p>
               </div>
               <div>
-                <p className="text-slate-500">Coste (€)</p>
+                <p className="text-[11px] font-semibold text-slate-700">
+                  Coste (€)
+                </p>
                 <p className="mt-1 text-slate-900">
-                  {incidencia.coste != null ? incidencia.coste.toFixed(2) : "-"}
+                  {incidencia.coste != null
+                    ? incidencia.coste.toFixed(2)
+                    : "—"}
                 </p>
               </div>
             </div>
 
             {incidencia.materiales && (
               <div>
-                <p className="text-xs font-medium text-slate-500">
+                <p className="text-[11px] font-semibold text-slate-700">
                   Materiales utilizados
                 </p>
-                <p className="mt-1 text-xs text-slate-800">
+                <p className="mt-1 text-[12px] text-slate-900">
                   {incidencia.materiales}
                 </p>
               </div>
             )}
 
             {!puedeEditar && (
-              <p className="mt-3 text-xs text-slate-600">
-                Esta incidencia es de solo lectura para tu rol ({user.rol}).
+              <p className="mt-2 text-[11px] text-slate-600">
+                Para tu rol ({user.rol}) esta incidencia es de solo lectura.
               </p>
             )}
           </div>
-        </section>
+        </article>
 
-        {/* Panel de gestión */}
+        {/* PANEL EDICIÓN */}
         {puedeEditar && (
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm text-sm">
-            <h2 className="text-sm font-semibold">Gestión y resolución</h2>
-            <p className="mt-1 text-xs text-slate-600">
-              Actualiza el estado, la asignación y los datos de resolución.
+          <aside className="border border-slate-300 bg-white p-4 text-[13px]">
+            <p className="mb-2 text-[12px] font-semibold text-slate-800">
+              Gestión técnica / administrativa
+            </p>
+            <p className="mb-3 text-[11px] text-slate-600">
+              Actualiza el estado, asignación y datos de resolución de la
+              incidencia.
             </p>
 
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
+            {/* Acciones rápidas */}
+            <div className="mb-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={saving || incidencia.estado === "EN_PROCESO" || estaCerrada}
+                onClick={marcarEnProceso}
+                className="border border-amber-500 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Marcar en proceso
+              </button>
+              <button
+                type="button"
+                disabled={saving || estaCerrada}
+                onClick={cerrarAhora}
+                className="border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cerrar ahora
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3 text-[12px]">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
+                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
                   Estado
                 </label>
                 <select
                   value={estado}
                   onChange={(e) => setEstado(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  className="w-full border border-slate-400 bg-white px-2 py-2 text-[12px] outline-none focus:border-blue-600"
                 >
                   <option value="ABIERTA">ABIERTA</option>
                   <option value="EN_PROCESO">EN PROCESO</option>
@@ -338,13 +498,13 @@ export default function IncidenciaDetailPage() {
 
               {esAdmin && (
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
                     Técnico asignado
                   </label>
                   <select
                     value={tecnicoId}
                     onChange={(e) => setTecnicoId(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    className="w-full border border-slate-400 bg-white px-2 py-2 text-[12px] outline-none focus:border-blue-600"
                   >
                     <option value="">(Sin asignar)</option>
                     {tecnicos.map((t) => (
@@ -357,62 +517,75 @@ export default function IncidenciaDetailPage() {
               )}
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
+                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
                   Fecha de resolución
                 </label>
                 <input
                   type="datetime-local"
                   value={fechaResolucion}
                   onChange={(e) => setFechaResolucion(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  className="w-full border border-slate-400 bg-white px-2 py-2 text-[12px] outline-none focus:border-blue-600"
                 />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
                     Tiempo empleado (min)
                   </label>
                   <input
                     type="number"
                     value={tiempoEmpleado}
                     onChange={(e) => setTiempoEmpleado(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    className="w-full border border-slate-400 bg-white px-2 py-2 text-[12px] outline-none focus:border-blue-600"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
                     Coste (€)
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={coste}
-                    onChange={(e) => setCoste(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={coste}
+                      onChange={(e) => setCoste(e.target.value)}
+                      className="w-full border border-slate-400 bg-white px-2 py-2 text-[12px] outline-none focus:border-blue-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={calcularCosteAutomatico}
+                      className="border border-slate-400 bg-slate-50 px-2 py-2 text-[10px] font-medium text-slate-800 hover:bg-slate-100"
+                    >
+                      Calcular coste
+                    </button>
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Calculado a partir del tiempo (tarifa base 30 €/h). Guarda
+                    para aplicar los cambios.
+                  </p>
                 </div>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
+                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
                   Materiales utilizados
                 </label>
                 <textarea
                   value={materiales}
                   onChange={(e) => setMateriales(e.target.value)}
                   rows={3}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  className="w-full border border-slate-400 bg-white px-2 py-2 text-[12px] outline-none focus:border-blue-600"
                 />
               </div>
 
               {error && (
-                <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">
+                <p className="border border-red-300 bg-red-50 px-3 py-2 text-[11px] text-red-700">
                   {error}
                 </p>
               )}
               {ok && (
-                <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
+                <p className="border border-emerald-300 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
                   {ok}
                 </p>
               )}
@@ -421,22 +594,22 @@ export default function IncidenciaDetailPage() {
                 <button
                   type="button"
                   onClick={() => router.push("/incidencias")}
-                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-[11px] font-medium text-slate-800 hover:bg-slate-50"
+                  className="border border-slate-400 bg-white px-4 py-2 text-[11px] font-medium text-slate-900 hover:bg-slate-100"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-md bg-sky-600 px-4 py-2 text-[11px] font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="border border-blue-700 bg-blue-700 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-white hover:bg-blue-800 disabled:opacity-60"
                 >
                   {saving ? "Guardando..." : "Guardar cambios"}
                 </button>
               </div>
             </form>
-          </section>
+          </aside>
         )}
-      </div>
+      </section>
     </main>
   );
 }
