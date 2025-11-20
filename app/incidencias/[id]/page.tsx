@@ -145,6 +145,14 @@ export default function IncidenciaDetailPage() {
   const esTecnico = user?.rol === "TECNICO";
   const puedeEditar = !!user && (esAdmin || esTecnico);
   const estaCerrada = incidencia?.estado === "CERRADA";
+  const horasAbierta = incidencia
+    ? Math.round(
+        (new Date().getTime() - new Date(incidencia.fechaCreacion).getTime()) /
+          (1000 * 60 * 60)
+      )
+    : 0;
+  const riesgoSLA =
+    incidencia && incidencia.estado !== "CERRADA" && horasAbierta >= 72;
 
   async function actualizarIncidencia(
     extra: Partial<{
@@ -341,6 +349,48 @@ export default function IncidenciaDetailPage() {
           Volver al listado
         </button>
       </div>
+
+      <section className="grid gap-3 text-[12px] md:grid-cols-3">
+        <div className="rounded-md border border-slate-200 bg-white p-3">
+          <p className="text-[11px] text-slate-600">Estado actual</p>
+          <div className="mt-1 flex items-center gap-2">
+            <EstadoChip estado={incidencia.estado} />
+            <span className="text-[12px] font-semibold text-slate-900">
+              {incidencia.estado === "CERRADA"
+                ? "Resuelta"
+                : incidencia.estado === "EN_PROCESO"
+                ? "En intervención"
+                : "Pendiente de revisión"}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-600">
+            Creada el {new Date(incidencia.fechaCreacion).toLocaleString()}
+          </p>
+        </div>
+        <div className={`rounded-md border p-3 ${
+          riesgoSLA
+            ? "border-amber-300 bg-amber-50"
+            : "border-emerald-200 bg-emerald-50"
+        }`}>
+          <p className="text-[11px] text-slate-600">Seguimiento de SLA</p>
+          <p className="text-xl font-semibold text-slate-900">
+            {horasAbierta} h en curso
+          </p>
+          <p className="mt-1 text-[11px] text-slate-600">
+            {riesgoSLA
+              ? "Más de 72h abierta. Prioriza su asignación o cierre."
+              : "Dentro de la ventana operativa prevista."}
+          </p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-white p-3">
+          <p className="text-[11px] text-slate-600">Siguiente paso</p>
+          <ul className="ml-4 mt-1 list-disc space-y-1 text-slate-700">
+            <li>Valida la descripción y adjunta materiales usados.</li>
+            <li>Actualiza el estado o asigna un técnico.</li>
+            <li>Guarda los tiempos para calcular el coste.</li>
+          </ul>
+        </div>
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.4fr,1fr]">
         {/* FICHA */}

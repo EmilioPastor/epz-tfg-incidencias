@@ -106,6 +106,18 @@ export default function DashboardPage() {
   const enProceso = incidencias.filter((i) => i.estado === "EN_PROCESO").length;
   const cerradas = incidencias.filter((i) => i.estado === "CERRADA").length;
 
+  const sinAsignar = incidencias.filter(
+    (i) => i.estado !== "CERRADA" && !i.tecnico
+  ).length;
+  const vencidasSLA = incidencias.filter((i) => {
+    if (i.estado === "CERRADA") return false;
+    const f = new Date(i.fechaCreacion).getTime();
+    const horasAbierta = (ahora.getTime() - f) / (1000 * 60 * 60);
+    return horasAbierta >= 72; // 3 días en abierto
+  }).length;
+  const progresoCierre = total > 0 ? Math.round((cerradas / total) * 100) : 0;
+  const colaActiva = abiertas + enProceso;
+
   // Métricas temporales (últimos 7 días y media de resolución)
   const ahora = new Date();
   const sieteDiasMs = 7 * 24 * 60 * 60 * 1000;
@@ -229,6 +241,63 @@ export default function DashboardPage() {
 
       {/* COLUMNA DERECHA */}
       <section className="space-y-6">
+        <section className="border border-slate-300 bg-white p-4 text-sm">
+          <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 pb-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Resumen operativo
+              </p>
+              <p className="text-[13px] text-slate-700">
+                {colaActiva} incidencias activas · {sinAsignar} sin asignar · {vencidasSLA} con riesgo de SLA
+              </p>
+            </div>
+            <div className="ml-auto flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Flujo estable
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-3 text-[12px]">
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <p className="text-[11px] text-slate-600">Progreso de cierre</p>
+              <p className="text-xl font-semibold text-slate-900">{progresoCierre}%</p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full bg-emerald-500"
+                  style={{ width: `${Math.min(100, progresoCierre)}%` }}
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">
+                {cerradas} de {total} incidencias cerradas.
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <p className="text-[11px] text-slate-600">Alertas de SLA</p>
+              <p className="text-xl font-semibold text-amber-700">{vencidasSLA}</p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Incidencias con más de 72h abiertas.
+              </p>
+              <button
+                onClick={() => router.push("/incidencias")}
+                className="mt-2 inline-flex items-center justify-center rounded-md border border-amber-400 bg-white px-3 py-1 text-[11px] font-medium text-amber-800 hover:bg-amber-50"
+              >
+                Revisar pendientes
+              </button>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <p className="text-[11px] text-slate-600">Asignación técnica</p>
+              <p className="text-xl font-semibold text-slate-900">{sinAsignar}</p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Incidencias sin técnico asociado.
+              </p>
+              <div className="mt-2 flex items-center gap-1 text-[11px] text-slate-600">
+                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                Usa el detalle para asignarlas rápidamente.
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* BLOQUE MÉTRICAS */}
         <section className="border border-slate-300 bg-white p-4 text-sm">
           <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-200 pb-2">

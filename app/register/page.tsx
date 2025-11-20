@@ -32,7 +32,9 @@ export default function RegisterPage() {
         return;
       }
 
-      setOk("Usuario creado correctamente. Redirigiendo al inicio de sesión...");
+      setOk(
+        "Usuario creado correctamente. Redirigiendo al inicio de sesión..."
+      );
       setNombre("");
       setEmail("");
       setPassword("");
@@ -47,16 +49,29 @@ export default function RegisterPage() {
 
   return (
     <main className="flex min-h-[calc(100vh-96px)] items-center justify-center px-4">
-      <div className="w-full max-w-md border border-slate-300 bg-white p-5 text-sm">
-        <h1 className="text-base font-semibold text-slate-900">
-          Crear usuario
-        </h1>
-        <p className="mt-1 text-xs text-slate-600">
-          Este formulario crea un usuario estándar para poder registrar
-          incidencias en el sistema.
-        </p>
+      <div className="w-full max-w-2xl border border-slate-200 bg-white p-6 text-sm shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Alta de usuario
+            </p>
+            <h1 className="text-base font-semibold text-slate-900">Crear usuario</h1>
+            <p className="mt-1 text-xs text-slate-600">
+              Este formulario crea un usuario estándar para poder registrar
+              incidencias en el sistema.
+            </p>
+          </div>
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
+            <p className="font-semibold text-slate-800">Checklist rápido</p>
+            <ul className="ml-4 mt-1 list-disc space-y-1">
+              <li>Nombre y correo corporativo.</li>
+              <li>Contraseña segura (mín. 8 caracteres).</li>
+              <li>Confirmación por correo opcional.</li>
+            </ul>
+          </div>
+        </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4 text-sm">
+        <form onSubmit={handleSubmit} className="mt-5 grid gap-4 text-sm md:grid-cols-2">
           <div>
             <label className="mb-1 block text-[13px] font-medium text-slate-800">
               Nombre
@@ -94,6 +109,9 @@ export default function RegisterPage() {
               className="w-full border border-slate-400 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600"
               placeholder="••••••••"
             />
+            <p className="mt-1 text-[11px] text-slate-500">
+              Recomendado: combina mayúsculas, minúsculas y símbolos.
+            </p>
           </div>
 
           {error && (
@@ -107,13 +125,15 @@ export default function RegisterPage() {
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={cargando}
-            className="flex w-full items-center justify-center border border-blue-700 bg-blue-700 px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-white hover:bg-blue-800 disabled:opacity-60"
-          >
-            {cargando ? "Creando..." : "Registrar usuario"}
-          </button>
+          <div className="md:col-span-2">
+            <button
+              type="submit"
+              disabled={cargando}
+              className="flex w-full items-center justify-center border border-blue-700 bg-blue-700 px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-white transition hover:-translate-y-[1px] hover:bg-blue-800 disabled:opacity-60"
+            >
+              {cargando ? "Creando..." : "Registrar usuario"}
+            </button>
+          </div>
         </form>
 
         <p className="mt-4 text-center text-xs text-slate-600">

@@ -118,6 +118,22 @@ export default function IncidenciasPage() {
     setOrdenFecha("DESC");
   }
 
+  const totalIncidencias = incidencias.length;
+  const abiertas = incidencias.filter((i) => i.estado === "ABIERTA").length;
+  const enProceso = incidencias.filter((i) => i.estado === "EN_PROCESO").length;
+  const cerradas = incidencias.filter((i) => i.estado === "CERRADA").length;
+  const sinAsignar = incidencias.filter(
+    (i) => i.estado !== "CERRADA" && !i.tecnico
+  ).length;
+  const ahora = new Date();
+  const vencidasSLA = incidencias.filter((i) => {
+    if (i.estado === "CERRADA") return false;
+    const horas =
+      (ahora.getTime() - new Date(i.fechaCreacion).getTime()) /
+      (1000 * 60 * 60);
+    return horas >= 72;
+  }).length;
+
   if (cargando) {
     return (
       <main className="p-6 text-sm text-slate-700">
@@ -181,6 +197,79 @@ export default function IncidenciasPage() {
           </button>
         </div>
       </div>
+
+      <section className="grid gap-3 md:grid-cols-4 text-[12px]">
+        <div className="rounded-md border border-slate-200 bg-white p-3">
+          <p className="text-[11px] text-slate-600">Total registradas</p>
+          <p className="text-xl font-semibold text-slate-900">{totalIncidencias}</p>
+          <p className="text-[11px] text-slate-500">Visibles según tu rol.</p>
+        </div>
+        <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
+          <p className="text-[11px] text-blue-700">Abiertas / En proceso</p>
+          <p className="text-xl font-semibold text-blue-900">{abiertas + enProceso}</p>
+          <p className="text-[11px] text-blue-800">
+            {abiertas} pendientes · {enProceso} en intervención
+          </p>
+        </div>
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+          <p className="text-[11px] text-emerald-700">Cerradas</p>
+          <p className="text-xl font-semibold text-emerald-900">{cerradas}</p>
+          <p className="text-[11px] text-emerald-800">Histórico disponible.</p>
+        </div>
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+          <p className="text-[11px] text-amber-700">Alertas</p>
+          <p className="text-xl font-semibold text-amber-900">{vencidasSLA}</p>
+          <p className="text-[11px] text-amber-800">Con más de 72h abiertas.</p>
+        </div>
+      </section>
+
+      <section className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+        <p className="font-semibold text-slate-800">Filtros rápidos:</p>
+        <button
+          onClick={() => setFiltroEstado("TODOS")}
+          className={`rounded-full border px-3 py-1 ${
+            filtroEstado === "TODOS"
+              ? "border-blue-600 bg-blue-600 text-white"
+              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+          }`}
+        >
+          Todos
+        </button>
+        <button
+          onClick={() => setFiltroEstado("ABIERTA")}
+          className={`rounded-full border px-3 py-1 ${
+            filtroEstado === "ABIERTA"
+              ? "border-blue-600 bg-blue-600 text-white"
+              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+          }`}
+        >
+          Abiertas
+        </button>
+        <button
+          onClick={() => setFiltroEstado("EN_PROCESO")}
+          className={`rounded-full border px-3 py-1 ${
+            filtroEstado === "EN_PROCESO"
+              ? "border-blue-600 bg-blue-600 text-white"
+              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+          }`}
+        >
+          En proceso
+        </button>
+        <button
+          onClick={() => setFiltroEstado("CERRADA")}
+          className={`rounded-full border px-3 py-1 ${
+            filtroEstado === "CERRADA"
+              ? "border-blue-600 bg-blue-600 text-white"
+              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+          }`}
+        >
+          Cerradas
+        </button>
+        <div className="ml-auto flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-700">
+          <span className="h-2 w-2 rounded-full bg-amber-500" />
+          {sinAsignar} sin asignar · {vencidasSLA} alerta SLA
+        </div>
+      </section>
 
       {/* Barra de filtros */}
       <section className="border border-slate-300 bg-white p-3 text-[12px]">
