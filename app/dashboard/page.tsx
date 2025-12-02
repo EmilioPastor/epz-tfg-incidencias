@@ -125,13 +125,13 @@ export default function DashboardPage() {
   );
 
   let mediaResolucionMin: number | null = null;
+
+  // Funcion sacada de IA
   if (cerradasConFecha.length > 0) {
     const totalMin = cerradasConFecha.reduce((acc, inc) => {
       if (!inc.fechaCreacion) return acc;
-      // En esta versión no usamos fechaResolucion porque depende de tu backend;
-      // si la tienes bien guardada, puedes sustituir por ella.
-      // Para el TFG, esto demuestra cálculo sobre datos reales.
-      return acc; // dejamos en 0 si no se ha usado fechaResolucion en el modelo
+      
+      return acc; 
     }, 0);
     if (totalMin > 0) {
       mediaResolucionMin = Math.round(totalMin / cerradasConFecha.length);

@@ -178,7 +178,7 @@ export default function IncidenciaDetailPage() {
       }
 
       const body = { ...base, ...extra };
-
+      // Funcion sacada de IA
       const res = await fetch(`/api/incidencias/${incidencia.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -264,11 +264,12 @@ export default function IncidenciaDetailPage() {
     });
   }
 
+  // Funcion sacada de IA
   function calcularCosteAutomatico() {
     const minutos = Number(tiempoEmpleado);
     if (!minutos || Number.isNaN(minutos)) return;
 
-    const tarifaHora = 30; // €/hora (puedes documentarlo en la memoria)
+    const tarifaHora = 30; // €/hora 
     const horas = minutos / 60;
     const costeCalculado = +(horas * tarifaHora).toFixed(2);
     setCoste(String(costeCalculado));
@@ -405,8 +406,8 @@ export default function IncidenciaDetailPage() {
                 <p className="mt-1 text-slate-900">
                   {incidencia.fechaResolucion
                     ? new Date(
-                        incidencia.fechaResolucion
-                      ).toLocaleString()
+                      incidencia.fechaResolucion
+                    ).toLocaleString()
                     : "—"}
                 </p>
               </div>
