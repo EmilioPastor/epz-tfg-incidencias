@@ -1,35 +1,23 @@
 // lib/auth.ts
-import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
 
-export type UserRole = 'USUARIO' | 'TECNICO' | 'ADMIN';
+export type UserRole = "USUARIO" | "TECNICO" | "ADMIN";
 
 export interface JwtUserPayload {
   id: number;
-  rol: UserRole;
   nombre: string;
   email: string;
+  rol: UserRole;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
+// Forzamos el tipo a string (TypeScript deja de quejarse)
+const JWT_SECRET = process.env.JWT_SECRET as string;
 
+// Comprobación en runtime (por si acaso)
 if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET no está definido en las variables de entorno');
+  throw new Error("Falta la variable de entorno JWT_SECRET");
 }
 
 export function signUserToken(payload: JwtUserPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
-}
-
-export function getCurrentUser(): JwtUserPayload | null {
-  const cookieStore = cookies();
-  const token = cookieStore.get('token')?.value;
-  if (!token) return null;
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JwtUserPayload;
-    return decoded;
-  } catch {
-    return null;
-  }
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "1d" });
 }
